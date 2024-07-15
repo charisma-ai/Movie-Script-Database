@@ -100,75 +100,76 @@ def get_clean_text(path):
     return clean_text
 
 
-clean_dict = {}
+if __name__ == "__main__":
+    clean_dict = {}
 
-count = 0
-count_total = 0
-for script in tqdm(metadata):
-    files = metadata[script]["files"]
-    if len(files) == 1:
-        path = join(SCRIPT_DIR, files[0]["source"],
-                    files[0]["file_name"] + ".txt")
-        clean_text = get_clean_text(path)
-
-        if clean_text.strip() == "":
-            print(files)
-            continue
-
-        clean_dict[script] = {"file": files[0]}
-        if "tmdb" in metadata[script]:
-            clean_dict[script]["tmdb"] = metadata[script]["tmdb"]
-        if "imdb" in metadata[script]:
-            clean_dict[script]["imdb"] = metadata[script]["imdb"]
-
-    else:
-        script_arr = []
-
-        for file in files:
-            path = join(SCRIPT_DIR, file["source"],
-                        file["file_name"] + ".txt")
+    count = 0
+    count_total = 0
+    for script in tqdm(metadata):
+        files = metadata[script]["files"]
+        if len(files) == 1:
+            path = join(SCRIPT_DIR, files[0]["source"],
+                        files[0]["file_name"] + ".txt")
             clean_text = get_clean_text(path)
+
             if clean_text.strip() == "":
                 print(files)
                 continue
-            file["text"] = clean_text[:10000]
-            file["matches"] = 0
 
-            script_arr.append(file)
-        final = compare_scripts(script_arr)
-        final.pop('text', 'No Key found')
-        final.pop('matches', 'No Key found')
+            clean_dict[script] = {"file": files[0]}
+            if "tmdb" in metadata[script]:
+                clean_dict[script]["tmdb"] = metadata[script]["tmdb"]
+            if "imdb" in metadata[script]:
+                clean_dict[script]["imdb"] = metadata[script]["imdb"]
 
-        clean_dict[script] = {"file": final}
-        if "tmdb" in metadata[script]:
-            clean_dict[script]["tmdb"] = metadata[script]["tmdb"]
-        if "imdb" in metadata[script]:
-            clean_dict[script]["imdb"] = metadata[script]["imdb"]
+        else:
+            script_arr = []
 
-    clean_dict[script]["file"].pop('size', 'No Key found')
+            for file in files:
+                path = join(SCRIPT_DIR, file["source"],
+                            file["file_name"] + ".txt")
+                clean_text = get_clean_text(path)
+                if clean_text.strip() == "":
+                    print(files)
+                    continue
+                file["text"] = clean_text[:10000]
+                file["matches"] = 0
 
-    path = join(SCRIPT_DIR, clean_dict[script]["file"]["source"],
-                clean_dict[script]["file"]["file_name"] + ".txt")
-    clean_text = get_clean_text(path)
+                script_arr.append(file)
+            final = compare_scripts(script_arr)
+            final.pop('text', 'No Key found')
+            final.pop('matches', 'No Key found')
 
-    with open(join(CLEAN_DIR, clean_dict[script]["file"]["file_name"] + ".txt"), 'w', errors="ignore") as out:
-        out.write(clean_text)
+            clean_dict[script] = {"file": final}
+            if "tmdb" in metadata[script]:
+                clean_dict[script]["tmdb"] = metadata[script]["tmdb"]
+            if "imdb" in metadata[script]:
+                clean_dict[script]["imdb"] = metadata[script]["imdb"]
 
-with open(join(CLEAN_META), "w") as outfile:
-    json.dump(clean_dict, outfile, indent=4)
+        clean_dict[script]["file"].pop('size', 'No Key found')
 
-print("Total scripts: ", len(clean_dict))
-# print(count_total)
+        path = join(SCRIPT_DIR, clean_dict[script]["file"]["source"],
+                    clean_dict[script]["file"]["file_name"] + ".txt")
+        clean_text = get_clean_text(path)
 
-count = 0
-score = {}
-for script in clean_dict:
-    if "tmdb" in clean_dict[script] and "imdb" in clean_dict[script]:
-        count += 1
-    if clean_dict[script]["file"]["source"] in score:
-        score[clean_dict[script]["file"]["source"]] +=1
-    else:
-        score[clean_dict[script]["file"]["source"]] =1
+        with open(join(CLEAN_DIR, clean_dict[script]["file"]["file_name"] + ".txt"), 'w', errors="ignore") as out:
+            out.write(clean_text)
 
-print("Scripts with complete metadata: ", count)
-print("Source Breakdown: ", score)
+    with open(join(CLEAN_META), "w") as outfile:
+        json.dump(clean_dict, outfile, indent=4)
+
+    print("Total scripts: ", len(clean_dict))
+    # print(count_total)
+
+    count = 0
+    score = {}
+    for script in clean_dict:
+        if "tmdb" in clean_dict[script] and "imdb" in clean_dict[script]:
+            count += 1
+        if clean_dict[script]["file"]["source"] in score:
+            score[clean_dict[script]["file"]["source"]] +=1
+        else:
+            score[clean_dict[script]["file"]["source"]] =1
+
+    print("Scripts with complete metadata: ", count)
+    print("Source Breakdown: ", score)

@@ -1,15 +1,14 @@
-from bs4 import BeautifulSoup
-import urllib
+import json
 import os
 import re
-import json
-from unidecode import unidecode
 
 from tqdm import tqdm
-from .utilities import format_filename, get_soup, get_pdf_text, create_script_dirs
+from unidecode import unidecode
+
+from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
 
-def get_scriptpdf():
+def get_scriptpdf(metadata_only=True):
     ALL_URL = "https://scriptpdf.com/full-list/"
     BASE_URL = "https://scriptpdf.com/"
     SOURCE = "scriptpdf"
@@ -18,7 +17,7 @@ def get_scriptpdf():
     def get_script_from_url(script_url, file_name):
         text = ""
         try:
-            if script_url.endswith('.pdf'):
+            if script_url.endswith(".pdf"):
                 text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
                 return text
 
@@ -30,29 +29,32 @@ def get_scriptpdf():
         return text
 
     def get_script_url(movie):
-        script_url = movie['href']
-        name = re.sub(r'\([^)]*\)', '', unidecode(movie.text)).strip()
+        script_url = movie["href"]
+        name = re.sub(r"\([^)]*\)", "", unidecode(movie.text)).strip()
         file_name = format_filename(name)
 
         return script_url, file_name, name
 
-    files = [os.path.join(DIR, f) for f in os.listdir(DIR) if os.path.isfile(
-        os.path.join(DIR, f)) and os.path.getsize(os.path.join(DIR, f)) > 3000]
+    files = [
+        os.path.join(DIR, f)
+        for f in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, f))
+        and os.path.getsize(os.path.join(DIR, f)) > 3000
+    ]
 
     metadata = {}
     soup = get_soup(ALL_URL)
-    movielist = soup.find_all('a')
+    movielist = soup.find_all("a")
 
     for movie in tqdm(movielist, desc=SOURCE):
-        if movie['href'].endswith('.pdf'):
+        if movie["href"].endswith(".pdf"):
             script_url, file_name, name = get_script_url(movie)
 
-            metadata[name] = {
-                "file_name": file_name,
-                "script_url": script_url
-            }
+            metadata[name] = {"file_name": file_name, "script_url": script_url}
+            if metadata_only:
+                continue
 
-            if os.path.join(DIR, file_name + '.txt') in files:
+            if os.path.join(DIR, file_name + ".txt") in files:
                 continue
 
             text = get_script_from_url(script_url, file_name)
@@ -60,8 +62,10 @@ def get_scriptpdf():
                 metadata.pop(name, None)
                 continue
 
-            with open(os.path.join(DIR, file_name + '.txt'), 'w', errors="ignore") as out:
+            with open(
+                os.path.join(DIR, file_name + ".txt"), "w", errors="ignore"
+            ) as out:
                 out.write(text)
-    
-    with open(os.path.join(META_DIR, SOURCE + ".json"), "w") as outfile: 
+
+    with open(os.path.join(META_DIR, SOURCE + ".json"), "w") as outfile:
         json.dump(metadata, outfile, indent=4)

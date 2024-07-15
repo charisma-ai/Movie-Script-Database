@@ -1,14 +1,15 @@
-from bs4 import BeautifulSoup
-import urllib
-import os
 import json
-from tqdm import tqdm
-import string
+import os
 import re
-from .utilities import format_filename, get_soup, create_script_dirs
+import string
+import urllib
+
+from tqdm import tqdm
+
+from .utilities import create_script_dirs, format_filename, get_soup
 
 
-def get_actorpoint():
+def get_actorpoint(metadata_only=True):
     ALL_URL = "https://www.actorpoint.com/movie-scripts/mscr-%s.html"
     BASE_URL = "https://www.actorpoint.com"
     SOURCE = "actorpoint"
@@ -18,7 +19,7 @@ def get_actorpoint():
         text = ""
 
         try:
-            if script_url.endswith('.html'):
+            if script_url.endswith(".html"):
                 script_soup = get_soup(script_url)
                 if script_soup == None:
                     return ""
@@ -34,16 +35,19 @@ def get_actorpoint():
         return text
 
     def get_script_url(movie):
+        script_url = movie.a["href"]
 
-        script_url = movie.a['href']
-
-        name = re.sub(r'\([^)]*\)', '', movie.a.text).strip()
+        name = re.sub(r"\([^)]*\)", "", movie.a.text).strip()
         file_name = format_filename(name)
 
         return script_url, file_name, name
 
-    files = [os.path.join(DIR, f) for f in os.listdir(DIR) if os.path.isfile(
-        os.path.join(DIR, f)) and os.path.getsize(os.path.join(DIR, f)) > 3000]
+    files = [
+        os.path.join(DIR, f)
+        for f in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, f))
+        and os.path.getsize(os.path.join(DIR, f)) > 3000
+    ]
     alphabet = string.ascii_lowercase
     metadata = {}
     movielist = []
@@ -58,12 +62,12 @@ def get_actorpoint():
         script_url, file_name, name = get_script_url(movie)
         script_url = BASE_URL + urllib.parse.quote(script_url)
 
-        metadata[name] = {
-            "file_name": file_name,
-            "script_url": script_url
-        }
+        metadata[name] = {"file_name": file_name, "script_url": script_url}
 
-        if os.path.join(DIR, file_name + '.txt') in files:
+        if os.path.join(DIR, file_name + ".txt") in files:
+            continue
+
+        if metadata_only:
             continue
 
         text = get_script_from_url(script_url)
@@ -71,7 +75,7 @@ def get_actorpoint():
             metadata.pop(name, None)
             continue
 
-        with open(os.path.join(DIR, file_name + '.txt'), 'w', errors="ignore") as out:
+        with open(os.path.join(DIR, file_name + ".txt"), "w", errors="ignore") as out:
             out.write(text)
 
     with open(os.path.join(META_DIR, SOURCE + ".json"), "w") as outfile:
