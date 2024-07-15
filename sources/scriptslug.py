@@ -9,6 +9,9 @@ from .utilities import create_script_dirs, format_filename, get_pdf_text, get_so
 
 
 def get_scriptslug(metadata_only=True):
+    # TODO: NEW URL - https://www.scriptslug.com/scripts/medium/series
+    # TODO: NEW URL - https://www.scriptslug.com/scripts/medium/film
+
     ALL_URL = "https://www.scriptslug.com/request/?pg="
     BASE_URL = "https://www.scriptslug.com/assets/uploads/scripts/"
     SOURCE = "scriptslug"

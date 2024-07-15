@@ -8,6 +8,7 @@ from .utilities import create_script_dirs, format_filename, get_pdf_text, get_so
 
 
 def get_scriptsavant(metadata_only=True):
+    # TODO: new URL https://thescriptsavant.com/movies.html
     ALL_URL_1 = "https://thescriptsavant.com/free-movie-screenplays-am/"
     ALL_URL_2 = "https://thescriptsavant.com/free-movie-screenplays-nz/"
     BASE_URL = "http://www.thescriptsavant.com/"
