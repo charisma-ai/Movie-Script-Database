@@ -7,28 +7,29 @@ from tqdm import tqdm
 
 from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
+ALL_URL_1 = "https://www.scriptslug.com/scripts/medium/film/?pg="
+# ALL_URL_2 = "https://www.scriptslug.com/scripts/medium/series/?pg="
+BASE_URL = "https://assets.scriptslug.com/live/pdf/scripts/"
+SOURCE = "scriptslug"
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
-def get_scriptslug(metadata_only=True):
-    ALL_URL_1 = "https://www.scriptslug.com/scripts/medium/film/?pg="
-    # ALL_URL_2 = "https://www.scriptslug.com/scripts/medium/series/?pg="
-    BASE_URL = "https://assets.scriptslug.com/live/pdf/scripts/"
-    SOURCE = "scriptslug"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
-    def get_script_from_url(script_url, file_name):
-        text = ""
+def get_script_from_url(script_url, file_name):
+    text = ""
 
-        try:
-            text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
-            return text
-
-        except Exception as err:
-            print(script_url)
-            print(err)
-            text = ""
-
+    try:
+        text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
         return text
 
+    except Exception as err:
+        print(script_url)
+        print(err)
+        text = ""
+
+    return text
+
+
+def get_scriptslug(metadata_only=True):
     def get_script_url(movie):
         script_url = movie["href"].split("/")[-1]
 

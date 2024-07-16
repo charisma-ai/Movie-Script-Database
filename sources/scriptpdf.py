@@ -7,27 +7,28 @@ from unidecode import unidecode
 
 from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
+ALL_URL = "https://scriptpdf.com/full-list/"
+BASE_URL = "https://scriptpdf.com/"
+SOURCE = "scriptpdf"
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
+
+
+def get_script_from_url(script_url, file_name):
+    text = ""
+    try:
+        if script_url.endswith(".pdf"):
+            text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
+            return text
+
+    except Exception as err:
+        print(script_url)
+        print(err)
+        text = ""
+
+    return text
+
 
 def get_scriptpdf(metadata_only=True):
-    ALL_URL = "https://scriptpdf.com/full-list/"
-    BASE_URL = "https://scriptpdf.com/"
-    SOURCE = "scriptpdf"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
-
-    def get_script_from_url(script_url, file_name):
-        text = ""
-        try:
-            if script_url.endswith(".pdf"):
-                text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
-                return text
-
-        except Exception as err:
-            print(script_url)
-            print(err)
-            text = ""
-
-        return text
-
     def get_script_url(movie):
         script_url = movie["href"]
         name = re.sub(r"\([^)]*\)", "", unidecode(movie.text)).strip()

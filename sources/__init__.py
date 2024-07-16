@@ -1,3 +1,5 @@
+import importlib
+
 from .actorpoint import get_actorpoint
 from .awesomefilm import get_awesomefilm
 from .dailyscript import get_dailyscript
@@ -9,6 +11,11 @@ from .scriptslug import get_scriptslug
 from .sfy import get_sfy
 from .utilities import *
 from .weeklyscript import get_weeklyscript
+
+
+def get_download_from_url_func(source):
+    module = importlib.import_module(f"sources.{source}")
+    return getattr(module, "get_script_from_url")
 
 
 def get_scripts(source, metadata_only):

@@ -7,13 +7,33 @@ from tqdm import tqdm
 
 from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
+ALL_URL = "https://www.weeklyscript.com/movies_full_list.htm"
+BASE_URL = "https://www.weeklyscript.com/"
+SOURCE = "weeklyscript"
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
+
+
+def get_script_from_url(script_url, file_name):
+    if script_url.endswith(".pdf"):
+        text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
+    else:
+        script_soup = get_soup(
+            urllib.parse.quote(
+                script_url.replace(".txt", ".html"), safe="%/:=&?~#+!$,;'@()*[]"
+            )
+        )
+
+        center = script_soup.find_all("center")[0]
+        unwanted = (
+            center.find_all("div") + center.find_all("script") + center.find_all("ins")
+        )
+        for tag in unwanted:
+            tag.extract()
+        text = center.get_text().strip()
+    return text
+
 
 def get_weeklyscript(metadata_only=True):
-    ALL_URL = "https://www.weeklyscript.com/movies_full_list.htm"
-    BASE_URL = "https://www.weeklyscript.com/"
-    SOURCE = "weeklyscript"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
-
     if not os.path.exists(DIR):
         os.makedirs(DIR)
 
@@ -38,25 +58,6 @@ def get_weeklyscript(metadata_only=True):
         metadata[name] = {"file_name": name, "script_url": script_url}
         if metadata_only:
             continue
-
-        if script_url.endswith(".pdf"):
-            text = get_pdf_text(BASE_URL + urllib.parse.quote(script_url))
-        else:
-            script_soup = get_soup(
-                BASE_URL
-                + urllib.parse.quote(
-                    script_url.replace(".txt", ".html"), safe="%/:=&?~#+!$,;'@()*[]"
-                )
-            )
-            center = script_soup.find_all("center")[0]
-            unwanted = (
-                center.find_all("div")
-                + center.find_all("script")
-                + center.find_all("ins")
-            )
-            for tag in unwanted:
-                tag.extract()
-            text = center.get_text().strip()
 
         if text == "" or name == "":
             continue

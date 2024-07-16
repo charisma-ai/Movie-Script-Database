@@ -6,13 +6,34 @@ from tqdm import tqdm
 
 from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
+ALL_URL = "https://sfy.ru/scripts"
+BASE_URL = "https://sfy.ru"
+SOURCE = "sfy"
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
+
+
+def get_script_from_url(script_url, file_name):
+    text = ""
+    if script_url.endswith(".pdf"):
+        try:
+            text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
+        except Exception as err:
+            print(script_url)
+            print(err)
+            return ""
+    else:
+        try:
+            script_soup = get_soup(script_url).pre
+            if script_soup:
+                text = script_soup.get_text()
+        except Exception as err:
+            print(script_url)
+            print(err)
+            return ""
+    return text
+
 
 def get_sfy(metadata_only=True):
-    ALL_URL = "https://sfy.ru/scripts"
-    BASE_URL = "https://sfy.ru"
-    SOURCE = "sfy"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
-
     files = [
         os.path.join(DIR, f)
         for f in os.listdir(DIR)
@@ -54,24 +75,7 @@ def get_sfy(metadata_only=True):
         if os.path.join(DIR, file_name + ".txt") in files:
             continue
 
-        if script_url.endswith(".pdf"):
-            try:
-                text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
-            except Exception as err:
-                print(script_url)
-                print(err)
-                metadata.pop(name, None)
-                continue
-        else:
-            try:
-                script_soup = get_soup(script_url).pre
-                if script_soup:
-                    text = script_soup.get_text()
-            except Exception as err:
-                print(script_url)
-                print(err)
-                metadata.pop(name, None)
-                continue
+        text = get_script_from_url(script_url, file_name)
 
         if text == "" or name == "":
             metadata.pop(name, None)

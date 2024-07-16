@@ -6,48 +6,45 @@ from tqdm import tqdm
 
 from .utilities import create_script_dirs, format_filename, get_pdf_text, get_soup
 
+ALL_URL = "https://imsdb.com/all-scripts.html"
+BASE_URL = "https://imsdb.com"
+SOURCE = "imsdb"
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
-def get_imsdb(metadata_only=True):
-    ALL_URL = "https://imsdb.com/all-scripts.html"
-    BASE_URL = "https://imsdb.com"
-    SOURCE = "imsdb"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
-    def get_script_from_url(script_url):
+def get_script_from_url(script_url, file_name):
+    text = ""
+
+    try:
+        if script_url.endswith(".pdf"):
+            text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
+            return text
+
+        if script_url.endswith(".html"):
+            script_soup = get_soup(script_url)
+            if script_soup is None:
+                return text
+            if len(script_soup.find_all("td", class_="scrtext")) < 1:
+                return ""
+            script_text = script_soup.find_all("td", class_="scrtext")[0].pre
+
+            if script_text:
+                script_text = script_soup.find_all("td", class_="scrtext")[0].pre.pre
+                if script_text:
+                    text = script_text.get_text()
+
+                else:
+                    script_text = script_soup.find_all("td", class_="scrtext")[0].pre
+                    text = script_text.get_text()
+    except Exception as err:
+        print(script_url)
+        print(err)
         text = ""
 
-        try:
-            if script_url.endswith(".pdf"):
-                text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
-                return text
+    return text
 
-            if script_url.endswith(".html"):
-                script_soup = get_soup(script_url)
-                if script_soup == None:
-                    return text
-                if len(script_soup.find_all("td", class_="scrtext")) < 1:
-                    return ""
-                script_text = script_soup.find_all("td", class_="scrtext")[0].pre
 
-                if script_text:
-                    script_text = script_soup.find_all("td", class_="scrtext")[
-                        0
-                    ].pre.pre
-                    if script_text:
-                        text = script_text.get_text()
-
-                    else:
-                        script_text = script_soup.find_all("td", class_="scrtext")[
-                            0
-                        ].pre
-                        text = script_text.get_text()
-        except Exception as err:
-            print(script_url)
-            print(err)
-            text = ""
-
-        return text
-
+def get_imsdb(metadata_only=True):
     def get_script_url(movie):
         script_page_url = movie.contents[0].get("href")
         name = movie.contents[0].text
@@ -93,7 +90,7 @@ def get_imsdb(metadata_only=True):
         if metadata_only:
             continue
 
-        text = get_script_from_url(script_url)
+        text = get_script_from_url(script_url, file_name)
 
         if text == "" or name == "":
             metadata.pop(name, None)

@@ -13,12 +13,34 @@ from .utilities import (
     get_soup,
 )
 
+SOURCE = "awesomefilm"
+ALL_URL = "http://www.awesomefilm.com/"
+BASE_URL = "http://www.awesomefilm.com/"
+
+DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
+
+
+def get_script_from_url(script_url, file_name):
+    if script_url.endswith(".pdf"):
+        text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
+
+    elif script_url.endswith(".doc"):
+        text = get_doc_text(script_url, os.path.join(SOURCE, file_name))
+
+    elif script_url.endswith(".txt"):
+        f = urllib.request.urlopen(script_url)
+        text = f.read().decode("utf-8", errors="ignore")
+
+    else:
+        script_soup = get_soup(script_url)
+        page = script_soup.pre
+        if page:
+            text = page.get_text()
+
+    return text
+
 
 def get_awesomefilm(metadata_only=True):
-    ALL_URL = "http://www.awesomefilm.com/"
-    BASE_URL = "http://www.awesomefilm.com/"
-    SOURCE = "awesomefilm"
-    DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
     files = [
         os.path.join(DIR, f)
         for f in os.listdir(DIR)
@@ -56,21 +78,7 @@ def get_awesomefilm(metadata_only=True):
             continue
 
         try:
-            if script_url.endswith(".pdf"):
-                text = get_pdf_text(script_url, os.path.join(SOURCE, file_name))
-
-            elif script_url.endswith(".doc"):
-                text = get_doc_text(script_url, os.path.join(SOURCE, file_name))
-
-            elif script_url.endswith(".txt"):
-                f = urllib.request.urlopen(script_url)
-                text = f.read().decode("utf-8", errors="ignore")
-
-            else:
-                script_soup = get_soup(script_url)
-                page = script_soup.pre
-                if page:
-                    text = page.get_text()
+            text = get_script_from_url(script_url, file_name)
         except Exception as err:
             print(script_url)
             print(err)
