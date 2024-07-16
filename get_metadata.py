@@ -145,6 +145,11 @@ def get_tmdb(name, type="movie"):
 
         release_date = getattr(result, date, None)
         release_date = release_date.strftime("%Y-%m-%d") if release_date else None
+        keywords = result.keywords.keywords
+        if keywords:
+            keywords = ",".join(g.name for g in result.keywords.keywords)
+        else:
+            keywords = ""
 
         return {
             "tmbd_id": result.id,
@@ -154,7 +159,7 @@ def get_tmdb(name, type="movie"):
             "overview": result.overview,
             "tagline": result.tagline,
             "genres": ",".join(g.name for g in result.genres),
-            "keywords": ",".join(g.name for g in result.keywords.keywords),
+            "keywords": keywords,
             "cast": cast,
             "directors": ",".join(directors),
         }
@@ -198,6 +203,12 @@ def get_tmdb_from_id(id):
     release_date = getattr(result, date, None)
     release_date = release_date.strftime("%Y-%m-%d") if release_date else None
 
+    keywords = result.keywords.keywords
+    if keywords:
+        keywords = ",".join(g.name for g in result.keywords.keywords)
+    else:
+        keywords = ""
+
     return {
         "tmbd_id": result.id,
         "imdb_id": getattr(result, "imdb_id", None),
@@ -206,7 +217,7 @@ def get_tmdb_from_id(id):
         "overview": result.overview,
         "tagline": result.tagline,
         "genres": ",".join(g.name for g in result.genres),
-        "keywords": ",".join(g.name for g in result.keywords.keywords),
+        "keywords": keywords,
         "cast": cast,
         "directors": ",".join(directors),
     }
