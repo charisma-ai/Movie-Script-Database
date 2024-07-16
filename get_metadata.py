@@ -5,16 +5,17 @@ import urllib
 import urllib.request
 from os import listdir
 from os.path import getsize, isfile, join
+from pathlib import Path
 
-import imdb
 from fuzzywuzzy import fuzz
+from imdb import Cinemagoer
 from tqdm.std import tqdm
 from unidecode import unidecode
 
 
 import config
 
-ia = imdb.IMDb()
+ia = Cinemagoer()
 
 
 META_DIR = join("scripts", "metadata")
@@ -210,54 +211,61 @@ if __name__ == "__main__":
                 source_meta = json.load(json_file)
                 metadata[source] = source_meta
 
-    unique = []
-    origin = {}
-    for source in metadata:
-        DIR = join("scripts", "unprocessed", source)
-        files = [
-            join(DIR, f)
-            for f in listdir(DIR)
-            if isfile(join(DIR, f)) and getsize(join(DIR, f)) > 3000
-        ]
+    if (Path(META_DIR) / "clean_meta.json").exists():
+        with open(Path(META_DIR) / "clean_meta.json", "r") as f:
+            origin = json.load(f)
+    else:
+        unique = []
+        origin = {}
+        for source in metadata:
+            DIR = join("scripts", "unprocessed", source)
+            files = [
+                join(DIR, f)
+                for f in listdir(DIR)
+                if isfile(join(DIR, f)) and getsize(join(DIR, f)) > 3000
+            ]
 
-        source_meta = metadata[source]
-        for script in source_meta:
-            name = re.sub(r"\([^)]*\)", "", script.strip()).lower()
-            name = " ".join(name.split("-"))
-            name = re.sub(r"[" + string.punctuation + "]", " ", name)
-            name = re.sub(" +", " ", name).strip()
-            name = name.split()
-            name = " ".join(list(filter(lambda a: a not in forbidden, name)))
-            name = "".join(name.split())
-            name = roman_to_int(name)
-            name = unidecode(name)
-            unique.append(name)
-            if name not in origin:
-                origin[name] = {"files": []}
-            curr_script = metadata[source][script]
-            curr_file = join(
-                "scripts", "unprocessed", source, curr_script["file_name"] + ".txt"
-            )
-            m = {
-                "name": unidecode(script),
-                "source": source,
-                "file_name": curr_script["file_name"],
-                "script_url": curr_script["script_url"],
-            }
+            source_meta = metadata[source]
+            for script in source_meta:
+                name = re.sub(r"\([^)]*\)", "", script.strip()).lower()
+                name = " ".join(name.split("-"))
+                name = re.sub(r"[" + string.punctuation + "]", " ", name)
+                name = re.sub(" +", " ", name).strip()
+                name = name.split()
+                name = " ".join(list(filter(lambda a: a not in forbidden, name)))
+                name = "".join(name.split())
+                name = roman_to_int(name)
+                name = unidecode(name)
+                unique.append(name)
+                if name not in origin:
+                    origin[name] = {"files": []}
+                curr_script = metadata[source][script]
+                curr_file = join(
+                    "scripts", "unprocessed", source, curr_script["file_name"] + ".txt"
+                )
+                m = {
+                    "name": unidecode(script),
+                    "source": source,
+                    "file_name": curr_script["file_name"],
+                    "script_url": curr_script["script_url"],
+                }
 
-            if curr_file in files:
-                m["size"] = getsize(curr_file)
+                if curr_file in files:
+                    m["size"] = getsize(curr_file)
 
-            origin[name]["files"].append(m)
+                origin[name]["files"].append(m)
 
-    final = sorted(list(set(unique)))
-    print(len(final))
+        final = sorted(list(set(unique)))
+        print(len(final))
 
     count = 0
 
     print("Get metadata from TMDb")
 
     for script in tqdm(origin):
+        if origin[script].get("tmdb"):
+            continue
+
         # Use original name
         name = origin[script]["files"][0]["name"]
         movie_data = get_tmdb(name)
@@ -283,13 +291,15 @@ if __name__ == "__main__":
                 else:
                     print(name)
                     count += 1
-
     print(count)
 
     print("Get metadata from IMDb")
 
     count = 0
     for script in tqdm(origin):
+        if origin[script].get("imdb"):
+            continue
+
         name = origin[script]["files"][0]["name"]
         movie_data = get_imdb(name)
 
