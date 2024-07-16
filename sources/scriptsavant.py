@@ -9,9 +9,9 @@ from .utilities import create_script_dirs, format_filename, get_pdf_text, get_so
 
 def get_scriptsavant(metadata_only=True):
     # TODO: new URL https://thescriptsavant.com/movies.html
-    ALL_URL_1 = "https://thescriptsavant.com/free-movie-screenplays-am/"
-    ALL_URL_2 = "https://thescriptsavant.com/free-movie-screenplays-nz/"
-    BASE_URL = "http://www.thescriptsavant.com/"
+    ALL_URL_1 = "https://thescriptsavant.com/movies.html"
+    # ALL_URL_2 = "https://thescriptsavant.com/free-movie-screenplays-nz/"
+    BASE_URL = "https://thescriptsavant.com"
     SOURCE = "scriptsavant"
     DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
@@ -24,16 +24,16 @@ def get_scriptsavant(metadata_only=True):
 
     metadata = {}
     soup_1 = get_soup(ALL_URL_1)
-    soup_2 = get_soup(ALL_URL_2)
+    # soup_2 = get_soup(ALL_URL_2)
 
-    movielist = soup_1.find_all("tbody")[0].find_all("a")
-    movielist_2 = soup_2.find_all("div", class_="fusion-text")[0].find_all("a")
-    movielist += movielist_2
+    movielist = soup_1.find_all("a", href=lambda href: href and "/movies/" in href)
+    # movielist_2 = soup_2.find_all("div", class_="fusion-text")[0].find_all("a")
+    # movielist += movielist_2
 
     for movie in tqdm(movielist, desc=SOURCE):
-        name = movie.text.replace("script", "").strip()
+        name = movie.text.replace("Script", "").strip()
         file_name = format_filename(name)
-        script_url = movie.get("href")
+        script_url = BASE_URL + movie.get("href")
 
         metadata[unidecode(name)] = {"file_name": file_name, "script_url": script_url}
 

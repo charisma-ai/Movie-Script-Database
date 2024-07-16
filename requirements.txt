@@ -4,3 +4,6 @@ Unidecode
 textract
 beautifulsoup4
 cinemagoer
+themoviedb
+requests-html
+lxml_html_clean

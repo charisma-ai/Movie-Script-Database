@@ -9,11 +9,9 @@ from .utilities import create_script_dirs, format_filename, get_pdf_text, get_so
 
 
 def get_scriptslug(metadata_only=True):
-    # TODO: NEW URL - https://www.scriptslug.com/scripts/medium/series
-    # TODO: NEW URL - https://www.scriptslug.com/scripts/medium/film
-
-    ALL_URL = "https://www.scriptslug.com/request/?pg="
-    BASE_URL = "https://www.scriptslug.com/assets/uploads/scripts/"
+    ALL_URL_1 = "https://www.scriptslug.com/scripts/medium/film/?pg="
+    # ALL_URL_2 = "https://www.scriptslug.com/scripts/medium/series/?pg="
+    BASE_URL = "https://assets.scriptslug.com/live/pdf/scripts/"
     SOURCE = "scriptslug"
     DIR, TEMP_DIR, META_DIR = create_script_dirs(SOURCE)
 
@@ -34,11 +32,14 @@ def get_scriptslug(metadata_only=True):
     def get_script_url(movie):
         script_url = movie["href"].split("/")[-1]
 
-        name = (
-            movie.find_all(class_="script__title")[0]
-            .find(text=True, recursive=False)
-            .strip()
-        )
+        name = movie["aria-label"].replace("Script", "")
+        name = re.sub(r"\(.*\)", "", name).strip()
+
+        # name = (
+        #     movie.find_all(class_="script__title")[0]
+        #     .find(text=True, recursive=False)
+        #     .strip()
+        # )
         file_name = re.sub(r"\([^)]*\)", "", format_filename(name))
 
         return script_url, file_name, name
@@ -51,13 +52,14 @@ def get_scriptslug(metadata_only=True):
     ]
 
     metadata = {}
-    movielist = []
+    TOTAL_PAGES = 60
 
-    for num in range(25):
-        pg = num + 1
-        soup = get_soup(ALL_URL + str(pg))
-        linklist = soup.find_all(class_="script__wrap")
-        movielist.extend(linklist)
+    print(f"Fetching scripts from {SOURCE}")
+    movielist = set()
+    for pg in range(10, TOTAL_PAGES, 10):
+        soup = get_soup(ALL_URL_1 + str(pg))
+        linklist = soup.find_all("a", href=lambda href: href and "/script/" in href)
+        movielist.update(linklist)
 
     for movie in tqdm(movielist, desc=SOURCE):
         script_url, file_name, name = get_script_url(movie)
