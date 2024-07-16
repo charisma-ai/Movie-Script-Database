@@ -10,12 +10,12 @@ import imdb
 from fuzzywuzzy import fuzz
 from tqdm.std import tqdm
 from unidecode import unidecode
+
+
 import config
 
 ia = imdb.IMDb()
 
-f = open("sources.json", "r")
-data = json.load(f)
 
 META_DIR = join("scripts", "metadata")
 TMDB_MOVIE_URL = "https://api.themoviedb.org/3/search/movie?api_key=%s&language=en-US&query=%s&page=1"
@@ -37,8 +37,6 @@ forbidden = [
     "movie",
     "transcript",
 ]
-
-metadata = {}
 
 
 def clean_name(name):
@@ -200,6 +198,10 @@ def get_imdb(name):
 
 
 if __name__ == "__main__":
+    metadata = {}
+    f = open("sources.json", "r")
+    data = json.load(f)
+
     for source in data:
         included = data[source]
         meta_file = join(META_DIR, source + ".json")
@@ -236,20 +238,17 @@ if __name__ == "__main__":
             curr_file = join(
                 "scripts", "unprocessed", source, curr_script["file_name"] + ".txt"
             )
+            m = {
+                "name": unidecode(script),
+                "source": source,
+                "file_name": curr_script["file_name"],
+                "script_url": curr_script["script_url"],
+            }
 
             if curr_file in files:
-                origin[name]["files"].append(
-                    {
-                        "name": unidecode(script),
-                        "source": source,
-                        "file_name": curr_script["file_name"],
-                        "script_url": curr_script["script_url"],
-                        "size": getsize(curr_file),
-                    }
-                )
+                m["size"] = getsize(curr_file)
 
-            else:
-                origin.pop(name)
+            origin[name]["files"].append(m)
 
     final = sorted(list(set(unique)))
     print(len(final))
