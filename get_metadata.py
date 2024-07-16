@@ -130,23 +130,33 @@ def get_tmdb(name, type="movie"):
         result = results[0]
         if type == "movie":
             result = tmdb.movie(result.id).details(
-                append_to_response="credits,external_id"
+                append_to_response="credits,external_id,keywords"
             )
         elif type == "tv":
             result = tmdb.tv(result.id).details(
-                append_to_response="credits,external_id"
+                append_to_response="credits,external_id,keywords"
             )
+
+        directors = [p.name for p in result.credits.crew if p.job == "Director"]
+        cast = [
+            {"character": p.character, "actor": p.name}
+            for p in result.credits.cast[:10]
+        ]  # get 10 main characters
+
+        release_date = getattr(result, date, None)
+        release_date = release_date.strftime("%Y-%m-%d") if release_date else None
 
         return {
             "tmbd_id": result.id,
-            "imdb_id": result.external_ids.get("imdb_id"),
-            "title": result[title],
-            "release_date": result[date],
+            "imdb_id": getattr(result, "imdb_id", None),
+            "title": getattr(result, title, None),
+            "release_date": release_date,
             "overview": result.overview,
             "tagline": result.tagline,
-            "genres": [g["name"] for g in result.genres],
-            "cast": result.credits.cast,
-            "crew": result.credits.crew,
+            "genres": ",".join(g.name for g in result.genres),
+            "keywords": ",".join(g.name for g in result.keywords.keywords),
+            "cast": cast,
+            "directors": ",".join(directors),
         }
     else:
         return {}
@@ -170,21 +180,35 @@ def get_tmdb_from_id(id):
 
     result = jres[results][0]
     if o_type == "movie":
-        result = tmdb.movie(result.id).details(append_to_response="credits,external_id")
+        result = tmdb.movie(result.id).details(
+            append_to_response="credits,external_id,keywords"
+        )
     elif o_type == "tv":
-        result = tmdb.tv(result.id).details(append_to_response="credits,external_id")
+        result = tmdb.tv(result.id).details(
+            append_to_response="credits,external_id,keywords"
+        )
     else:
         return {}
+
+    directors = [p.name for p in result.credits.crew if p.job == "Director"]
+    cast = [
+        {"character": p.character, "actor": p.name} for p in result.credits.cast[:10]
+    ]  # get 10 main characters
+
+    release_date = getattr(result, date, None)
+    release_date = release_date.strftime("%Y-%m-%d") if release_date else None
+
     return {
         "tmbd_id": result.id,
-        "imdb_id": result.external_ids.get("imdb_id"),
-        "title": result[title],
-        "release_date": result[date],
+        "imdb_id": getattr(result, "imdb_id", None),
+        "title": getattr(result, title, None),
+        "release_date": release_date,
         "overview": result.overview,
         "tagline": result.tagline,
-        "genres": [g["name"] for g in result.genres],
-        "cast": result.credits.cast,
-        "crew": result.credits.crew,
+        "genres": ",".join(g.name for g in result.genres),
+        "keywords": ",".join(g.name for g in result.keywords.keywords),
+        "cast": cast,
+        "directors": ",".join(directors),
     }
 
 
@@ -225,6 +249,7 @@ if __name__ == "__main__":
     f = open("sources.json", "r")
     data = json.load(f)
     metadata_path = Path(META_DIR) / "clean_meta.json"
+    interval = 10
 
     for source in data:
         included = data[source]
@@ -289,10 +314,7 @@ if __name__ == "__main__":
     print("Get metadata from TMDb")
 
     count = 0
-
-    print("Get metadata from TMDb")
-
-    for script in tqdm(origin):
+    for i, script in tqdm(enumerate(origin), total=len(origin)):
         if origin[script].get("tmdb"):
             continue
 
@@ -321,6 +343,12 @@ if __name__ == "__main__":
                 else:
                     print(name)
                     count += 1
+
+        if (i + 1) % (len(origin) // interval) == 0:
+            print("Saving intermediate TMDB metadata...")
+            with open(metadata_path, "w") as outfile:
+                json.dump(origin, outfile, indent=4)
+
     print(count)
 
     print("Saving intermediate metadata with TMDB data...")
@@ -330,10 +358,9 @@ if __name__ == "__main__":
     print("Get metadata from IMDb")
 
     count = 0
-    for script in tqdm(origin):
+    for i, script in tqdm(enumerate(origin), total=len(origin)):
         if origin[script].get("imdb"):
             continue
-
         name = origin[script]["files"][0]["name"]
         movie_data = get_imdb(name)
 
@@ -348,6 +375,11 @@ if __name__ == "__main__":
                 origin[script]["imdb"] = movie_data
         else:
             origin[script]["imdb"] = movie_data
+
+        if (i + 1) % (len(origin) // interval) == 0:
+            print("Saving intermediate IMDB metadata...")
+            with open(metadata_path, "w") as outfile:
+                json.dump(origin, outfile, indent=4)
 
     print(count)
     print("Saving intermediate metadata with IMDB data...")
