@@ -6,7 +6,7 @@ from os.path import getsize, isfile, join
 from pathlib import Path
 
 from fuzzywuzzy import fuzz
-from imdb import Cinemagoer
+from imdb import Cinemagoer, IMDbError
 from themoviedb import TMDb
 from tqdm.std import tqdm
 from unidecode import unidecode
@@ -228,7 +228,7 @@ def get_imdb(name):
         movies = ia.search_movie(name)
         if len(movies) > 0:
             movie_id = movies[0].movieID
-            movie = movies[0]
+            movie = ia.get_movie(movie_id)
 
             if "year" in movie:
                 release_date = movie["year"]
@@ -236,17 +236,33 @@ def get_imdb(name):
                 print("Field missing in response")
                 return {}
 
+            keywords = None
+            try:
+                keywords = ia.get_movie_keywords(movie_id)["data"].get("keywords")
+            except IMDbError as e:
+                print(e)
+            taglines = None
+            try:
+                taglines = ia.get_movie_taglines(movie_id)["data"].get("taglines")
+            except IMDbError as e:
+                print(e)
+            synopsis = None
+            try:
+                synopsis = ia.get_movie_synopsis(movie_id)["data"].get("synopsis")
+            except IMDbError as e:
+                print(e)
+
             return {
                 "id": movie_id,
                 "title": unidecode(movie["title"]),
                 "release_date": release_date,
-                "director": movie["directors"],
+                "directors": ",".join(d["name"] for d in movie["directors"]),
                 "plot": movie["plot"],
                 "plot outline": movie["plot outline"],
-                "keywords": movie["keywords"],
-                "genres": movie["genres"],
-                "taglines": movie["taglines"],
-                "synopsis": movie["synopsis"],
+                "keywords": keywords,
+                "genres": ",".join(movie["genres"]),
+                "taglines": taglines,
+                "synopsis": synopsis,
             }
         else:
             return {}
