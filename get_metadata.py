@@ -1,17 +1,15 @@
 import json
 import re
 import string
-import urllib
-import urllib.request
 from os import listdir
 from os.path import getsize, isfile, join
 from pathlib import Path
 
 from fuzzywuzzy import fuzz
 from imdb import Cinemagoer
+from themoviedb import TMDb
 from tqdm.std import tqdm
 from unidecode import unidecode
-
 
 import config
 
@@ -112,65 +110,82 @@ def extra_clean(name):
     return name
 
 
+tmdb = TMDb(key=config.tmdb_api_key)
+
+
 def get_tmdb(name, type="movie"):
     if type == "movie":
-        base_url = TMDB_MOVIE_URL
         date = "release_date"
         title = "title"
     elif type == "tv":
-        base_url = TMDB_TV_URL
         date = "first_air_date"
         title = "name"
 
-    url = base_url % (tmdb_api_key, urllib.parse.quote(name))
-    response = urllib.request.urlopen(url)
-    res_data = response.read()
-    jres = json.loads(res_data)
+    if type == "movie":
+        results = tmdb.search().movies(name)
+    elif type == "tv":
+        results = tmdb.search().tv(name)
 
-    if jres["total_results"] > 0:
-        movie = jres["results"][0]
-        if title in movie and date in movie and "id" in movie and "overview" in movie:
-            return {
-                "title": unidecode(movie[title]),
-                "release_date": movie[date],
-                "id": movie["id"],
-                "overview": unidecode(movie["overview"]),
-            }
-        else:
-            print("Field missing in response")
-            return {}
+    if len(results) > 0:
+        result = results[0]
+        if type == "movie":
+            result = tmdb.movie(result.id).details(
+                append_to_response="credits,external_id"
+            )
+        elif type == "tv":
+            result = tmdb.tv(result.id).details(
+                append_to_response="credits,external_id"
+            )
+
+        return {
+            "tmbd_id": result.id,
+            "imdb_id": result.external_ids.get("imdb_id"),
+            "title": result[title],
+            "release_date": result[date],
+            "overview": result.overview,
+            "tagline": result.tagline,
+            "genres": [g["name"] for g in result.genres],
+            "cast": result.credits.cast,
+            "crew": result.credits.crew,
+        }
     else:
         return {}
 
 
 def get_tmdb_from_id(id):
-    url = TMDB_ID_URL % (id, tmdb_api_key)
-    response = urllib.request.urlopen(url)
-    res_data = response.read()
-    jres = json.loads(res_data)
-
+    jres = tmdb.find().by_tvdb(id)
+    o_type = None
     if len(jres["movie_results"]) > 0:
         results = "movie_results"
         date = "release_date"
         title = "title"
+        o_type == "movie"
     elif len(jres["tv_results"]) > 0:
         results = "tv_results"
         date = "first_air_date"
         title = "name"
+        o_type == "tv"
     else:
         return {}
 
-    movie = jres[results][0]
-    if title in movie and date in movie and "id" in movie and "overview" in movie:
-        return {
-            "title": unidecode(movie[title]),
-            "release_date": movie[date],
-            "id": movie["id"],
-            "overview": unidecode(movie["overview"]),
-        }
+    result = jres[results][0]
+    if o_type == "movie":
+        result = tmdb.movie(result.id).details(append_to_response="credits,external_id")
+    elif o_type == "tv":
+        result = tmdb.tv(result.id).details(append_to_response="credits,external_id")
     else:
-        print("Field missing in response")
         return {}
+    return {
+        "tmbd_id": result.id,
+        "imdb_id": result.external_ids.get("imdb_id"),
+        "title": result[title],
+        "release_date": result[date],
+        "overview": result.overview,
+        "tagline": result.tagline,
+        "genres": [g["name"] for g in result.genres],
+        "cast": result.credits.cast,
+        "crew": result.credits.crew,
+    }
 
 
 def get_imdb(name):
@@ -187,9 +202,16 @@ def get_imdb(name):
                 return {}
 
             return {
+                "id": movie_id,
                 "title": unidecode(movie["title"]),
                 "release_date": release_date,
-                "id": movie_id,
+                "director": movie["directors"],
+                "plot": movie["plot"],
+                "plot outline": movie["plot outline"],
+                "keywords": movie["keywords"],
+                "genres": movie["genres"],
+                "taglines": movie["taglines"],
+                "synopsis": movie["synopsis"],
             }
         else:
             return {}
