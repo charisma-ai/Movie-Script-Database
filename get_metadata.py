@@ -224,6 +224,7 @@ if __name__ == "__main__":
     metadata = {}
     f = open("sources.json", "r")
     data = json.load(f)
+    metadata_path = Path(META_DIR) / "clean_meta.json"
 
     for source in data:
         included = data[source]
@@ -233,8 +234,8 @@ if __name__ == "__main__":
                 source_meta = json.load(json_file)
                 metadata[source] = source_meta
 
-    if (Path(META_DIR) / "clean_meta.json").exists():
-        with open(Path(META_DIR) / "clean_meta.json", "r") as f:
+    if metadata_path.exists():
+        with open(metadata_path, "r") as f:
             origin = json.load(f)
     else:
         unique = []
@@ -280,6 +281,13 @@ if __name__ == "__main__":
         final = sorted(list(set(unique)))
         print(len(final))
 
+    if not metadata_path.exists():
+        print("Saving intermediate metadata...")
+        with open(metadata_path, "w") as outfile:
+            json.dump(origin, outfile, indent=4)
+
+    print("Get metadata from TMDb")
+
     count = 0
 
     print("Get metadata from TMDb")
@@ -315,6 +323,10 @@ if __name__ == "__main__":
                     count += 1
     print(count)
 
+    print("Saving intermediate metadata with TMDB data...")
+    with open(metadata_path, "w") as outfile:
+        json.dump(origin, outfile, indent=4)
+
     print("Get metadata from IMDb")
 
     count = 0
@@ -338,6 +350,9 @@ if __name__ == "__main__":
             origin[script]["imdb"] = movie_data
 
     print(count)
+    print("Saving intermediate metadata with IMDB data...")
+    with open(metadata_path, "w") as outfile:
+        json.dump(origin, outfile, indent=4)
 
     # Use IMDb id to search TMDb
     count = 0
@@ -404,6 +419,6 @@ if __name__ == "__main__":
                     origin[script]["imdb"] = movie_data
 
     print(count)
-
-    with open(join(META_DIR, "clean_meta.json"), "w") as outfile:
+    print("Saving final metadata")
+    with open(metadata_path, "w") as outfile:
         json.dump(origin, outfile, indent=4)
