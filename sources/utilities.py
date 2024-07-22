@@ -1,6 +1,7 @@
 import os
 
 import openai
+import tqdm
 import config
 os.environ["TESSDATA_PREFIX"] = config.TESSDATA_PREFIX
 import re
@@ -100,10 +101,11 @@ def get_pdf_text(url, name):
     f.write(result.read())
     f.close()
     ocr = False
+    print(f"Processing {doc}...")
     try:
         doc = pymupdf.open(doc)
         text = ""
-        for page_num in range(doc.page_count):
+        for page_num in tqdm.tqdm(range(doc.page_count),total=doc.page_count):
             page = doc.load_page(page_num)
             page_text = clean_pdf_text(page.get_text())
             if not page_text:
