@@ -2,8 +2,11 @@ tqdm
 fuzzywuzzy
 Unidecode
 textract
+PyMuPDF
 beautifulsoup4
 cinemagoer
 themoviedb
 requests-html
 lxml_html_clean
+# python-bidi==0.4.0
+# easyocr
