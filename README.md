@@ -32,6 +32,13 @@ Then install all dependencies using pip
 pip install -r requirements.txt
 ```
 
+### Set up your config
+Create config.py file.
+```
+cp config_example.py > config.py
+```
+Enter your API keys.
+
 ### Collect movie scripts
 
 Modify the sources you want to download in `sources.json`. If you want a source to be included, set the value to `true`, or else set it as `false`.
