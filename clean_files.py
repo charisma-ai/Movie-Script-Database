@@ -81,6 +81,8 @@ def clean_script(text):
 
     if is_removed(final_data):
         final_data = ""
+    if len(final_data) < 2000: # if less than 2000 characters (1 page of text)
+        final_data = ""
 
     return final_data
 
