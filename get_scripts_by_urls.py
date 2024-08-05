@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -23,23 +24,33 @@ PRIORITY = [
     "scriptpdf",
 ]
 if __name__ == "__main__":
-    with open("movies.json", "r") as f:
+    parser = argparse.ArgumentParser(
+        description="Download scripts from list of urls and sources"
+    )
+    parser.add_argument(
+        "--movies",
+        type=Path,
+        default="../charismatic-tools/storydb_scraper/data/movies.json",
+        help="List of urls to download",
+    )
+    args = parser.parse_args()
+    with open(args.movies, "r") as f:
         data = json.load(f)
 
     new_data = {k: v for k, v in data.items() if v.get("sources")}
     print(f"No sources found for {len(data)-len(new_data)} scripts")
-    data = new_data
+    # data = new_data
     # new_data = {
     #     k: v
     #     for k, v in data.items()
     #     if not (DIR / (format_filename(k) + ".txt")).exists()
     # }
     # print(f"Scripts already downloaded for {len(data)-len(new_data)} scripts")
-    data = new_data
+    # data = new_data
 
     failed = 0
     starttime = time.time()
-    for name, d in tqdm(data.items()):
+    for name, d in tqdm(new_data.items()):
         file_name = format_filename(name)
         save_name = DIR / (file_name + ".txt")
         if save_name.exists():
