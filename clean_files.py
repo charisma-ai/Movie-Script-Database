@@ -26,6 +26,11 @@ f = open(META_FILE, 'r')
 metadata = json.load(f)
 
 
+def is_removed(text):
+    if "Document removed by request.".lower() in text.lower():
+        return True
+    return False
+
 def clean_script(text):
 
     text = text.encode('utf-8', 'ignore').decode('utf-8').strip()
@@ -73,6 +78,10 @@ def clean_script(text):
 
     final_data = '\n'.join(lines)
     final_data = re.sub(r'\n\n+', '\n\n', final_data).strip()
+
+    if is_removed(final_data):
+        final_data = ""
+
     return final_data
 
 
