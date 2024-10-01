@@ -1,29 +1,27 @@
-from fuzzywuzzy import fuzz
-from os import listdir, makedirs
-from os.path import isfile, join, sep, getsize, exists
-from tqdm import tqdm
-import re
 import itertools
-import string
-
-from unidecode import unidecode
-
 import json
+import os
+import re
+from os import makedirs
+from os.path import exists, join
 
-f = open('sources.json', 'r')
-data = json.load(f)
+from tqdm import tqdm
 
-SCRIPT_DIR = join("scripts", "unprocessed")
-META_DIR = join("scripts", "metadata")
-CLEAN_DIR = join("scripts", "filtered")
+sources_path = join(os.path.dirname(__file__), 'sources.json')
+with open(sources_path, 'r') as f:
+    data = json.load(f)
+
+SCRIPT_DIR = join(os.path.dirname(__file__),"scripts", "unprocessed")
+META_DIR = join(os.path.dirname(__file__),"scripts", "metadata")
+CLEAN_DIR = join(os.path.dirname(__file__),"scripts", "filtered")
 META_FILE = join(META_DIR, "clean_meta.json")
 CLEAN_META = join(META_DIR, "clean_files_meta.json")
 
 if not exists(CLEAN_DIR):
     makedirs(CLEAN_DIR)
 
-f = open(META_FILE, 'r')
-metadata = json.load(f)
+with open(META_FILE, 'r') as f:
+    metadata = json.load(f)
 
 
 def is_removed(text):

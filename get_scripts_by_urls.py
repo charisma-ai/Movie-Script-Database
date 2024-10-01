@@ -8,9 +8,9 @@ from tqdm import tqdm
 
 import sources
 from clean_files import clean_script
-from sources.utilities import format_filename
+from sources.utilities import format_filename, get_pdf_text
 
-DIR = Path("scripts") / "downloads"
+DIR = Path(__file__).parent / "scripts/downloads"
 DIR.mkdir(parents=True, exist_ok=True)
 
 PRIORITY = [
@@ -71,13 +71,33 @@ if __name__ == "__main__":
             script_url = source.get("url")
             source = source.get("source")
             if script_url and source:
-                text = sources.get_download_from_url_func(source)(script_url, file_name)
-                text = clean_script(text).strip()
-                if text:
-                    with open(save_name, "w") as f:
-                        f.write(text)
-                    text_found = True
-                    break
+                download = sources.get_download_from_url_func(source)
+                if download is not None:
+                    try:
+                        text = download(script_url, file_name)
+                        text = clean_script(text).strip()
+                        if text:
+                            with open(save_name, "w") as f:
+                                f.write(text)
+                            text_found = True
+                            break
+                    except Exception as e:
+                        print(e)
+                        continue
+        # fallback
+        if not text_found and len(d["sources"]) != 0:
+            script_url = d["sources"][0]["url"]
+            if script_url.endswith(".pdf"):
+                try:
+                    text = get_pdf_text(script_url, file_name)
+                    text = clean_script(text).strip()
+                    if text:
+                        with open(save_name, "w") as f:
+                            f.write(text)
+                        text_found = True
+                except Exception:
+                    text_found = False
+
         if not text_found:
             print("Script is empty: " + script_url)
             failed += 1
