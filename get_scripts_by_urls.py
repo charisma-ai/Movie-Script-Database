@@ -1,6 +1,8 @@
 import argparse
 import json
+import multiprocessing
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -23,34 +25,11 @@ PRIORITY = [
     "scriptsavant",
     "scriptpdf",
 ]
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Download scripts from list of urls and sources"
-    )
-    parser.add_argument(
-        "--movies",
-        type=Path,
-        default="../charismatic-tools/storydb_scraper/data/movies.json",
-        help="List of urls to download",
-    )
-    args = parser.parse_args()
-    with open(args.movies, "r") as f:
-        data = json.load(f)
 
-    new_data = {k: v for k, v in data.items() if v.get("sources")}
-    print(f"No sources found for {len(data)-len(new_data)} scripts")
-    # data = new_data
-    # new_data = {
-    #     k: v
-    #     for k, v in data.items()
-    #     if not (DIR / (format_filename(k) + ".txt")).exists()
-    # }
-    # print(f"Scripts already downloaded for {len(data)-len(new_data)} scripts")
-    # data = new_data
 
+def download_scripts(data: dict):
     failed = 0
-    starttime = time.time()
-    for name, d in tqdm(new_data.items()):
+    for name, d in tqdm(data.items()):
         file_name = format_filename(name)
         save_name = DIR / (file_name + ".txt")
         if save_name.exists():
@@ -62,13 +41,16 @@ if __name__ == "__main__":
                 else:
                     os.remove(save_name)
 
-        sources_list = {s["source"]: s["url"] for s in d.get("sources", [])}
+        sources_list = {
+            s["source"]: s.get("script_url", s.get("url"))
+            for s in d.get("sources", d.get("files", []))
+        }
         sources_list = [
             {"source": x, "url": sources_list[x]} for x in PRIORITY if x in sources_list
         ]  # sort by priority
         text_found = False
         for source in sources_list:
-            script_url = source.get("url")
+            script_url = source.get("url", source.get("script_url"))
             source = source.get("source")
             if script_url and source:
                 download = sources.get_download_from_url_func(source)
@@ -85,8 +67,10 @@ if __name__ == "__main__":
                         print(e)
                         continue
         # fallback
-        if not text_found and len(d["sources"]) != 0:
-            script_url = d["sources"][0]["url"]
+        if not text_found and len(d.get("sources", d.get("files", []))) != 0:
+            script_url = d.get("sources", d.get("files", []))[0].get(
+                "url", d.get("sources", d.get("files", []))[0].get("script_url")
+            )
             if script_url.endswith(".pdf"):
                 try:
                     text = get_pdf_text(script_url, file_name)
@@ -98,9 +82,59 @@ if __name__ == "__main__":
                 except Exception:
                     text_found = False
 
-        if not text_found:
+        if text_found:
+            args.output.mkdir(parents=True, exist_ok=True)
+            output_path = args.output / save_name.name
+            shutil.copy2(save_name, output_path)
+        else:
             print("Script is empty: " + script_url)
             failed += 1
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Download scripts from list of urls and sources"
+    )
+    parser.add_argument(
+        "--movies",
+        type=Path,
+        default="new_movies.json",
+        help="List of urls to download",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default="scripts/output",
+        help="Output folder",
+    )
+    parser.add_argument(
+        "--num_processes",
+        type=int,
+        default=2,
+        help="Number of processes",
+    )
+    args = parser.parse_args()
+    with open(args.movies, "r") as f:
+        data = json.load(f)
+
+    new_data = {k: v for k, v in data.items() if v.get("sources", v.get("files"))}
+    print(f"No sources found for {len(data)-len(new_data)} scripts")
+
+    failed = 0
+    starttime = time.time()
+    processes: list[multiprocessing.Process] = []
+
+    batch_size = len(new_data) // args.num_processes
+    print(f"Batch size: {batch_size}")
+    data_list = list(new_data.items())
+    for i in range(args.num_processes):
+        data = dict(data_list[i * batch_size : (i + 1) * batch_size])
+        p = multiprocessing.Process(target=download_scripts, args=(data,))
+        processes.append(p)
+        p.start()
+
+    for process in processes:
+        process.join()
 
     print(f"Failed: {failed}")
     print("Time taken = {} seconds".format(time.time() - starttime))
