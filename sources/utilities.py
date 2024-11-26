@@ -73,7 +73,7 @@ def completion_with_backoff(**kwargs):
     return client.chat.completions.create(**kwargs)
 
 def ocr_images(
-    image_bytes: list[bytes],
+    image_bytes: list[str],
     use_cache: bool = True,
     verbose=True,
 ) -> list[str]:
@@ -121,9 +121,9 @@ def get_pdf_text(url, name):
         f.write(result.read())
     ocr = False
     print(f"Processing {doc}...")
+    text = ""
     try:
         doc = pymupdf.open(doc)
-        text = ""
         imgs = []
         for page_num in tqdm(range(doc.page_count), total=doc.page_count):
             page = doc.load_page(page_num)
