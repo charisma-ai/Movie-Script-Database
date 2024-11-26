@@ -27,7 +27,7 @@ PRIORITY = [
 ]
 
 
-def download_scripts(data: dict):
+def download_scripts(data: dict, output: Path):
     failed = 0
     for name, d in tqdm(data.items()):
         file_name = format_filename(name)
@@ -83,8 +83,8 @@ def download_scripts(data: dict):
                     text_found = False
 
         if text_found:
-            args.output.mkdir(parents=True, exist_ok=True)
-            output_path = args.output / save_name.name
+            output.mkdir(parents=True, exist_ok=True)
+            output_path = output / save_name.name
             shutil.copy2(save_name, output_path)
         else:
             print("Script is empty: " + script_url)
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_processes",
         type=int,
-        default=2,
+        default=10,
         help="Number of processes",
     )
     args = parser.parse_args()
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     data_list = list(new_data.items())
     for i in range(args.num_processes):
         data = dict(data_list[i * batch_size : (i + 1) * batch_size])
-        p = multiprocessing.Process(target=download_scripts, args=(data,))
+        p = multiprocessing.Process(target=download_scripts, args=(data, args.output))
         processes.append(p)
         p.start()
 

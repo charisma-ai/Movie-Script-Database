@@ -1,25 +1,39 @@
 import os
 
 import openai
-import tqdm
+from tqdm.auto import tqdm
+
 import config
+
 os.environ["TESSDATA_PREFIX"] = config.TESSDATA_PREFIX
+import base64
 import re
 import string
 import urllib.request
+# from transformers import AutoModel, AutoTokenizer
+from typing import Any, Dict, List, Tuple
+from uuid import UUID
 
+import pandas as pd
 import pymupdf
 import textract
+import tiktoken
 from bs4 import BeautifulSoup
+from langchain_community.cache import SQLiteCache
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.globals import set_llm_cache
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.outputs import LLMResult
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from requests_html import HTMLSession
 from tenacity import stop_after_attempt  # for exponential backoff
 from tenacity import retry, wait_random_exponential
-import base64
+
 
 def format_filename(s):
     valid_chars = "-() %s%s%s" % (string.ascii_letters, string.digits, "%")
     filename = "".join(c for c in s if c in valid_chars)
-    filename = filename.replace("%20", " ")
     filename = filename.replace("%27", "")
     filename = filename.replace(" ", "-")
     filename = re.sub(r"-+", "-", filename).strip()
@@ -42,78 +56,89 @@ def get_soup(url):
         soup = None
     return soup
 
+
 def clean_pdf_text(text):
-    text = text.encode('utf-8', 'ignore').decode('utf-8').strip()
+    text = text.encode("utf-8", "ignore").decode("utf-8").strip()
     text = text.replace("", "")
     text = text.replace("•", "")
     text = text.replace("·", "")
     return text
 
-client = openai.OpenAI(
-    api_key=config.OPENAI_API_KEY
-)
+
+client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+
+
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def completion_with_backoff(**kwargs):
     return client.chat.completions.create(**kwargs)
 
-# import easyocr
-# print("Loading OCR engine...")
-# reader = easyocr.Reader(['en']) 
-# print("OCR engine loaded.")
-# def ocr_image(image_bytes):
-#     reader.readtext(image_bytes,paragraph=True)
-#     result = reader.readtext(image_bytes,paragraph=True)
-#     return "\n".join([l[1] for l in result]) 
-
-
-def ocr_image(
-    image_bytes,    
-):    
-    base64_image = base64.b64encode(image_bytes).decode('utf-8')
-    response = completion_with_backoff(
-        model="gpt-4o",
-        temperature=0,        
-        messages=[
-            {
-                "role": "system",
-                "content": "Read the text in the image and return it verbatim.",
-            },
-            {
-                "role": "user",
-                "content": [
+def ocr_images(
+    image_bytes: list[bytes],
+    use_cache: bool = True,
+    verbose=True,
+) -> list[str]:
+    if use_cache:
+        set_llm_cache(SQLiteCache(database_path=".langchain.db"))
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    chain = (
+        {
+            "image_data": lambda x: x,
+        }
+        | ChatPromptTemplate.from_messages(
+            [
+                ("system", "Read the text in the image and return it verbatim."),
+                ("user", [
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
+                        "image_url": {"url": "data:image/jpeg;base64,{image_data}"},
                     }
-                ]
-            },
-        ],
+                ]),
+            ]
+        )
+        | llm
+        | StrOutputParser()
     )
-    return response.choices[0].message.content.strip()
+
+    if verbose:
+        with BatchCallback(len(image_bytes), "OCRing images") as cb:
+            ocred_imgs = chain.batch(
+                image_bytes,
+                {"max_concurrency": 20, "callbacks": [cb]},
+            )
+    else:
+        ocred_imgs = chain.batch(
+            image_bytes,
+            {"max_concurrency": 20},
+        )
+
+    return ocred_imgs
 
 
 def get_pdf_text(url, name):
     doc = os.path.join("scripts", "temp", name + ".pdf")
     result = urllib.request.urlopen(url)
-    f = open(doc, "wb")
-    f.write(result.read())
-    f.close()
+    with open(doc, "wb") as f:
+        f.write(result.read())
     ocr = False
     print(f"Processing {doc}...")
     try:
         doc = pymupdf.open(doc)
         text = ""
-        for page_num in tqdm.tqdm(range(doc.page_count),total=doc.page_count):
+        imgs = []
+        for page_num in tqdm(range(doc.page_count), total=doc.page_count):
             page = doc.load_page(page_num)
             page_text = clean_pdf_text(page.get_text())
-            if not page_text:
-                img = page.get_pixmap()
-                page_text = ocr_image(img.tobytes())                
+            if not page_text or ocr:                
                 ocr = True
+                img = page.get_pixmap()
+                base64_image = base64.b64encode(img.tobytes()).decode('utf-8')
+                imgs.append(base64_image)
+            if not ocr:
+                text += page_text
 
-            text += page_text
+        if ocr:
+            page_texts = ocr_images(imgs)
+            text = "".join(page_texts)
 
     except Exception as err:
         print(err)
@@ -154,3 +179,32 @@ def create_script_dirs(source):
         os.makedirs(TEMP_DIR)
 
     return DIR, TEMP_DIR, META_DIR
+
+
+class BatchCallback(BaseCallbackHandler):
+    def __init__(self, total: int, desc: str):
+        super().__init__()
+        self.count = 0
+        self.progress_bar = tqdm(total=total, desc=desc)  # define a progress bar
+
+    # Override on_llm_end method. This is called after every response from LLM
+    def on_llm_end(
+        self,
+        response: LLMResult,
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        self.count += 1
+        self.progress_bar.update(1)
+
+    def __enter__(self):
+        self.progress_bar.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.progress_bar.__exit__(exc_type, exc_value, exc_traceback)
+
+    def __del__(self):
+        self.progress_bar.__del__()
